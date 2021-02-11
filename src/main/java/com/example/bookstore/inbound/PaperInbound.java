@@ -11,7 +11,6 @@ import org.springframework.integration.dsl.IntegrationFlow;
 import org.springframework.integration.dsl.IntegrationFlows;
 import org.springframework.integration.webflux.dsl.WebFlux;
 import org.springframework.stereotype.Component;
-import reactor.core.publisher.Flux;
 
 /**
  * // TODO Comment
@@ -23,15 +22,26 @@ public class PaperInbound {
     return IntegrationFlows
         .from(WebFlux.inboundChannelAdapter("/papers")
             .requestMapping(m -> m.methods(HttpMethod.POST))
-            .requestPayloadType(ResolvableType.forClassWithGenerics(Flux.class, Paper.class))
-            .statusCodeFunction(m -> HttpStatus.ACCEPTED))
-        .<Flux<Paper>, Flux<Bookline>>transform(flux ->
-          flux.map(paper -> {
-            int chapter = BooklineUtils.findChapterNumber(paper.getPageNumber());
-            String bookLineNumber = BooklineUtils.findBooklineNumber();
-            return new Bookline(bookLineNumber, paper.getBookId(), paper.getTitle(),
-                paper.getContent(), paper.getPageNumber(), chapter);
-          }))
+            .statusCodeFunction(m -> {
+              HttpStatus statusCode;
+              switch (m.getMethod()) {
+                case POST:
+                  statusCode = HttpStatus.ACCEPTED;
+                  break;
+                default:
+                  statusCode = HttpStatus.BAD_REQUEST;
+                  break;
+              }
+              return statusCode;
+            })
+            .requestPayloadType(ResolvableType.forClass(Paper.class))
+        ).<Paper, Bookline>transform(paper -> new Bookline(
+            BooklineUtils.findBooklineNumber(),
+            paper.getBookId(),
+            paper.getTitle(),
+            paper.getContent(),
+            paper.getPageNumber(),
+            BooklineUtils.findChapterNumber(paper.getPageNumber())))
         .channel("papers_rc")
         .get();
   }
