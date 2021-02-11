@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.integration.annotation.ServiceActivator;
 import org.springframework.messaging.handler.annotation.Payload;
+import reactor.core.publisher.Flux;
 
 /**
  * // TODO Comment
@@ -28,5 +29,11 @@ public class BooklineService {
         .doOnCancel(() -> logger.warn("Cancelled"))
         .doFinally(s -> logger.info("Finally done"))
         .subscribe();
+  }
+
+  @ServiceActivator(inputChannel = "bookline_rc")
+  public Flux<Bookline> getBooklineByBookId(@Payload String bookId) {
+    logger.info("Find all bookline by book id: {}", bookId);
+    return booklineRepository.findByBookId(bookId);
   }
 }
